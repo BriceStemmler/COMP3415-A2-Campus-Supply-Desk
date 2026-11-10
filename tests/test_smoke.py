@@ -40,6 +40,32 @@ class OrderSmokeTests(unittest.TestCase):
         self.assertEqual(cancelled["status"], "cancelled")
         self.assertEqual(self.service.catalog(), before)
 
+    def test_student_receives_discount(self):
+        catalog = self.service.catalog()
+
+        hoodie = next(
+            product for product in catalog
+            if product["product_id"] == "hoodie")
+
+        hoodie_price = hoodie["unit_price_cents"]
+
+        quote = self.service.quote(
+            "student",
+            [{"product_id": "hoodie", "quantity": 2}])
+
+        subtotal = hoodie_price * 2
+
+        expected_discount = (
+            (subtotal * 10 + 50) // 100
+            if subtotal >= 5000 else 0
+        )
+
+        expected_total = subtotal - expected_discount
+
+        self.assertEqual(quote["subtotal_cents"], subtotal)
+        self.assertEqual(quote["discount_cents"], expected_discount)
+        self.assertEqual(quote["total_cents"], expected_total)
+
 
 if __name__ == "__main__":
     unittest.main()
