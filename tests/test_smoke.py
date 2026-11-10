@@ -46,7 +46,6 @@ class OrderSmokeTests(unittest.TestCase):
         hoodie = next(
             product for product in catalog
             if product["product_id"] == "hoodie")
-
         hoodie_price = hoodie["unit_price_cents"]
 
         quote = self.service.quote(
@@ -54,17 +53,35 @@ class OrderSmokeTests(unittest.TestCase):
             [{"product_id": "hoodie", "quantity": 2}])
 
         subtotal = hoodie_price * 2
-
         expected_discount = (
             (subtotal * 10 + 50) // 100
-            if subtotal >= 5000 else 0
-        )
-
+            if subtotal >= 5000 else 0)
         expected_total = subtotal - expected_discount
 
         self.assertEqual(quote["subtotal_cents"], subtotal)
         self.assertEqual(quote["discount_cents"], expected_discount)
         self.assertEqual(quote["total_cents"], expected_total)
+
+    def test_purchace_quantity_within_available_limits(self):
+        catalog = self.service.catalog()
+
+        hoodie = next(
+            item for item in catalog
+            if item["product_id"] == "hoodie")
+        stock = hoodie["stock"]
+
+        if stock >= 1:
+            quote = self.service.quote(
+                "regular",
+                [{"product_id": "hoodie", "quantity": 2}])
+
+            self.assertGreaterEqual(quote["items"][0]["quantity"], 1)
+            self.assertLessEqual(quote["items"][0]["quantity"], stock)
+
+        with self.assertRaises(ValueError):
+            self.service.quote(
+                "regular",
+                [{"product_id": "hoodie", "quantity": stock + 1}])
 
 
 if __name__ == "__main__":
