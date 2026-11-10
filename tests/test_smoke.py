@@ -83,6 +83,24 @@ class OrderSmokeTests(unittest.TestCase):
                 "regular",
                 [{"product_id": "hoodie", "quantity": stock + 1}])
 
+    def test_find_order_by_order_id(self):
+        order = self.service.place_order(
+            "regular",
+            [{"product_id": "mug", "quantity": 1}])
+        
+        order_id = order["order_id"]
+        found_order = self.service.get_order(order_id)
+
+        self.assertIsNotNone(found_order)
+        self.assertEqual(found_order["order_id"], order_id)
+        self.assertEqual(found_order, order)
+
+    def test_invalid_product_id(self):
+        with self.assertRaisesRegex(ValueError, "Unknown product."):
+            self.service.quote(
+                "regular",
+                [{"product_id": "invalid-product", "quantity": 1}])
+
 
 if __name__ == "__main__":
     unittest.main()
