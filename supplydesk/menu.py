@@ -22,8 +22,8 @@ def show_order(order):
         print(f"{label}: {money(order[key])}")
 
 
-def read_request(service):
-    show_catalog(service.catalog())
+def read_request(display):
+    show_catalog(display.catalog())
     print("Enter product IDs from the table. Blank product ID finishes the item list.")
     customer = input("Customer type [regular/student] (Enter = regular): ").strip() or "regular"
     items = []
@@ -42,7 +42,7 @@ def read_request(service):
     return customer, items, fulfillment
 
 
-def run_menu(service):
+def run_menu(order, display, validate):
     print("Campus Supply Desk | All prices are CAD. Orders are saved automatically.")
     while True:
         try:
@@ -53,30 +53,30 @@ def run_menu(service):
                 print("Goodbye.")
                 return 0
             if choice == "1":
-                show_catalog(service.catalog())
+                show_catalog(display.catalog())
             elif choice in ("2", "3"):
-                request = read_request(service)
+                request = read_request(display)
                 if choice == "2":
-                    show_order(service.quote(*request))
+                    show_order(validate.validateOrder(*request))
                     print("Quote only: no stock reserved and no order created.")
                 else:
-                    show_order(service.quote(*request))
+                    show_order(validate.validateOrder(*request))
                     if input("Place this order? [y/N]: ").strip().lower() == "y":
-                        show_order(service.place_order(*request))
+                        show_order(order.place_order(*request))
                     else:
                         print("Order not placed.")
             elif choice == "4":
-                orders = service.list_orders()
+                orders = display.list_orders()
                 if not orders:
                     print("No orders yet.")
                 for order in orders:
                     show_order(order)
             elif choice == "5":
-                show_order(service.get_order(input("Order ID: ").strip()))
+                show_order(validate.validateOrderID(input("Order ID: ").strip()))
             elif choice == "6":
                 order_id = input("Order ID to cancel: ").strip()
                 if input("Cancel this order? [y/N]: ").strip().lower() == "y":
-                    show_order(service.cancel_order(order_id))
+                    show_order(order.cancel_order(order_id))
                 else:
                     print("Cancellation abandoned.")
             else:
