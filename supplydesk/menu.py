@@ -69,8 +69,8 @@ def run_menu(order, display, validate):
                 orders = display.list_orders()
                 if not orders:
                     print("No orders yet.")
-                for order in orders:
-                    show_order(order)
+                for existing_order in orders:
+                    show_order(existing_order)
             elif choice == "5":
                 show_order(validate.validateOrderID(input("Order ID: ").strip()))
             elif choice == "6":

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 
-from supplydesk.service import OrderService
+from supplydesk.service import OrderService, ValidateService, DisplayService
 
 
 def parse_item(value):
@@ -43,23 +43,26 @@ def build_parser():
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
-    service = OrderService(args.data)
+    order = OrderService(args.data)
+    validate = ValidateService(args.data)
+    display = DisplayService(args.data)
+
     if args.command is None:
         from supplydesk.menu import run_menu
-        return run_menu(service)
+        return run_menu(order, display, validate)
     try:
         if args.command == "catalog":
-            result = service.catalog()
+            result = display.catalog()
         elif args.command == "quote":
-            result = service.quote(args.customer, args.item, args.fulfillment)
+            result = validate.validateOrder(args.customer, args.item, args.fulfillment)
         elif args.command == "place":
-            result = service.place_order(args.customer, args.item, args.fulfillment)
+            result = order.place_order(args.customer, args.item, args.fulfillment)
         elif args.command == "orders":
-            result = service.list_orders()
+            result = display.list_orders()
         elif args.command == "show":
-            result = service.get_order(args.order_id)
+            result = validate.validateOrderID(args.order_id)
         else:
-            result = service.cancel_order(args.order_id)
+            result = order.cancel_order(args.order_id)
     except (ValueError, OSError, KeyError, TypeError) as error:
         print("Error: " + str(error), file=sys.stderr)
         return 2

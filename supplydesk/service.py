@@ -6,7 +6,8 @@ class ValidateService:
     def __init__(self, state_path=".supplydesk/state.json"):
         self.store = JsonStore(state_path)
 
-    def validateOrder(self, state, customer_type, items, fulfillment="pickup"):
+    def validateOrder(self, customer_type, items, fulfillment="pickup"):
+        state = self.store.load()
         if customer_type not in ("regular", "student"):
             raise ValueError("Customer type must be regular or student.")
         if fulfillment not in ("pickup", "delivery"):
@@ -57,11 +58,14 @@ class ValidateService:
             "total_cents": subtotal - discount + delivery,
         }
 
-    def validateOrderID(self, state, order_id):
-            for order in state["orders"]:
-                if order["order_id"] == order_id:
-                    return order
-            raise ValueError("Unknown order: " + order_id)
+    def validateOrderID(self, order_id, state=None):
+        if state is None:
+            state = self.store.load()
+
+        for order in state["orders"]:
+            if order["order_id"] == order_id:
+                return order
+        raise ValueError("Unknown order: " + order_id)
 
 class DisplayService:
     def __init__(self, state_path=".supplydesk/state.json"):
@@ -79,11 +83,11 @@ class DisplayService:
 class OrderService:
     def __init__(self, state_path=".supplydesk/state.json"):
         self.store = JsonStore(state_path)
-        self.validator = ValidateService()
+        self.validator = ValidateService(state_path)
 
     def place_order(self, customer_type, items, fulfillment="pickup"):
         state = self.store.load()
-        order_details = self.validator.validateOrder(state, customer_type, items, fulfillment)
+        order_details = self.validator.validateOrder(customer_type, items, fulfillment)
 
         order = {
             "order_id": "ORD-" + str(state["next_order_number"]).zfill(4),
@@ -104,7 +108,7 @@ class OrderService:
 
     def cancel_order(self, order_id):
         state = self.store.load()
-        order = self.validator.validateOrderID(state, order_id)
+        order = self.validator.validateOrderID(order_id,state)
         for line in order["items"]:
             for product in state["catalog"]:
                 if product["product_id"] == line["product_id"]:
@@ -113,7 +117,5 @@ class OrderService:
 
         self.store.save(state)
         return order
-
-
 
 
