@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from supplydesk.service import OrderService
+from supplydesk.service import OrderService, ValidateService, DisplayService
 
 
 class OrderSmokeTests(unittest.TestCase):
@@ -12,43 +12,45 @@ class OrderSmokeTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.path = Path(self.directory.name) / "state.json"
-        self.service = OrderService(self.path)
+        self.order = OrderService(self.path)
+        self.validate = ValidateService(self.path)
+        self.display = DisplayService(self.path)
 
     def test_regular_pickup_quote(self):
-        quote = self.service.quote("regular", [{"product_id": "notebook", "quantity": 2}])
+        quote = self.validate.validateOrder("regular", [{"product_id": "notebook", "quantity": 2}])
         self.assertEqual(quote["subtotal_cents"], 1000)
         self.assertEqual(quote["discount_cents"], 0)
         self.assertEqual(quote["delivery_cents"], 0)
         self.assertEqual(quote["total_cents"], 1000)
 
     def test_student_delivery_quote(self):
-        quote = self.service.quote("student", [{"product_id": "hoodie", "quantity": 2}], "delivery")
+        quote = self.validate.validateOrder("student", [{"product_id": "hoodie", "quantity": 2}], "delivery")
         self.assertEqual(quote["discount_cents"], 800)
         self.assertEqual(quote["delivery_cents"], 600)
         self.assertEqual(quote["total_cents"], 7800)
 
     def test_order_can_be_reopened(self):
-        order = self.service.place_order("regular", [{"product_id": "mug", "quantity": 1}])
+        order = self.order.place_order("regular", [{"product_id": "mug", "quantity": 1}])
         self.assertEqual(order["order_id"], "ORD-0001")
         self.assertEqual(order["status"], "placed")
-        self.assertEqual(OrderService(self.path).get_order(order["order_id"]), order)
+        self.assertEqual(ValidateService(self.path).validateOrderID(order["order_id"]), order)
 
     def test_cancel_order_restores_stock(self):
-        before = self.service.catalog()
-        order = self.service.place_order("regular", [{"product_id": "pen-pack", "quantity": 2}])
-        cancelled = self.service.cancel_order(order["order_id"])
+        before = self.display.catalog()
+        order = self.order.place_order("regular", [{"product_id": "pen-pack", "quantity": 2}])
+        cancelled = self.order.cancel_order(order["order_id"])
         self.assertEqual(cancelled["status"], "cancelled")
-        self.assertEqual(self.service.catalog(), before)
+        self.assertEqual(self.display.catalog(), before)
 
     def test_student_receives_discount(self):
-        catalog = self.service.catalog()
+        catalog = self.display.catalog()
 
         hoodie = next(
             product for product in catalog
             if product["product_id"] == "hoodie")
         hoodie_price = hoodie["unit_price_cents"]
 
-        quote = self.service.quote(
+        quote = self.validate.validateOrder(
             "student",
             [{"product_id": "hoodie", "quantity": 2}])
 
@@ -63,7 +65,7 @@ class OrderSmokeTests(unittest.TestCase):
         self.assertEqual(quote["total_cents"], expected_total)
 
     def test_purchace_quantity_within_available_limits(self):
-        catalog = self.service.catalog()
+        catalog = self.display.catalog()
 
         hoodie = next(
             item for item in catalog
@@ -71,7 +73,7 @@ class OrderSmokeTests(unittest.TestCase):
         stock = hoodie["stock"]
 
         if stock >= 1:
-            quote = self.service.quote(
+            quote = self.validate.validateOrder(
                 "regular",
                 [{"product_id": "hoodie", "quantity": 2}])
 
@@ -79,17 +81,17 @@ class OrderSmokeTests(unittest.TestCase):
             self.assertLessEqual(quote["items"][0]["quantity"], stock)
 
         with self.assertRaises(ValueError):
-            self.service.quote(
+            self.validate.validateOrder(
                 "regular",
                 [{"product_id": "hoodie", "quantity": stock + 1}])
 
     def test_find_order_by_order_id(self):
-        order = self.service.place_order(
+        order = self.order.place_order(
             "regular",
             [{"product_id": "mug", "quantity": 1}])
         
         order_id = order["order_id"]
-        found_order = self.service.get_order(order_id)
+        found_order = self.validate.validateOrderID(order_id)
 
         self.assertIsNotNone(found_order)
         self.assertEqual(found_order["order_id"], order_id)
@@ -97,7 +99,7 @@ class OrderSmokeTests(unittest.TestCase):
 
     def test_invalid_product_id(self):
         with self.assertRaisesRegex(ValueError, "Unknown product."):
-            self.service.quote(
+            self.validate.validateOrder(
                 "regular",
                 [{"product_id": "invalid-product", "quantity": 1}])
 
